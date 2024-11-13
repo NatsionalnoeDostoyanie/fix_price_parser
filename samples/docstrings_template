@@ -1,0 +1,12 @@
+
+{{summaryPlaceholder}}.
+
+{{extendedSummaryPlaceholder}}.
+
+{{#args}}
+:param {{var}}: {{descriptionPlaceholder}}.
+{{/args}}
+
+{{#returns}}
+:returns: {{descriptionPlaceholder}}.
+{{/returns}}
