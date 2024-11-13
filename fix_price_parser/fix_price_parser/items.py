@@ -45,7 +45,7 @@ class MetadataItem(Item):  # type: ignore[misc]
 
     ```
         metadata_item = MetadataItem()
-        metadata_item.description = "Item description."  # Set the `description` attribute is required
+        metadata_item.description = "Item description."  # Setting the `description` attribute is required
         metadata_item["key1"] = "value1"
         metadata_item["key2"] = "value2"  # You can add any amount of key-value pairs
         print(metadata_item)  # {"_description": "Item description.", "key1": "value1, "key2": "value2"}
