@@ -40,6 +40,17 @@ class AssetsItem:
 
 
 class MetadataItem(Item):  # type: ignore[misc]
+    """
+    Using:
+
+    ```
+        metadata_item = MetadataItem()
+        metadata_item.description = "Item description."
+        metadata_item["key"] = "value"  # You can add any amount of keys
+        print(metadata_item)  # {"_description": "Item description.", "key": "value"}
+    ```
+    """
+
     _description: str = Field()
 
     @property

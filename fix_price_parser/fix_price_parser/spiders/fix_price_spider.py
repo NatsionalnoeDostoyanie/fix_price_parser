@@ -21,9 +21,36 @@ from fix_price_parser.items import (
 
 
 class FixPriceSpider(Spider):  # type: ignore[misc]
+    """
+    Spider for scraping product data from the FixPrice website.
+
+    This spider fetches product information based on specified city and category slugs.
+    It constructs requests to the FixPrice API and processes the responses to extract
+    product details such as title, price, and metadata.
+    """
+
     name = "fix_price_spider"
 
     def __init__(self, city_id: int, categories_slugs: str | tuple[str, ...], *args: Any, **kwargs: Any) -> None:
+        """
+        Initializes the FixPriceSpider object with city and categories information.
+
+        This constructor sets up the spider with the necessary city ID and category slugs
+        to filter the products that will be scraped. It also initializes the headers and
+        base URLs required for making requests to the FixPrice API.
+
+        :param city_id: 
+            The ID of the city for which to fetch product data. 
+            You can get it by calling the `available_cities_spider` (`make get-available-cities` command).
+        :param categories_slugs: 
+            A single category slug or a tuple of category slugs to filter products.
+        
+        :raises ValueError: 
+            If `city_id` is not an integer or `categories_slugs` is not a tuple of strings or a single string.
+        :raises JSONDecodeError: 
+            If the FixPrice API blocks the request (most likely due to rate limiting).
+        """
+
         super().__init__(*args, **kwargs)
 
         try:
@@ -75,6 +102,20 @@ class FixPriceSpider(Spider):  # type: ignore[misc]
 
     @lru_cache()
     def build_category_hierarchy(self, base_category_slug: str) -> list[str]:
+        """
+        Builds a hierarchy of category titles from a `base category` slug.
+
+        This method takes a `base category` slug and traverses the category JSON 
+        to construct a list of category titles representing the hierarchy of
+        categories leading to the base category.
+
+        :param base_category_slug: 
+            The slug representing the `base category`.
+
+        :returns: 
+            A list of category titles representing the hierarchy based on `base category`.
+        """
+
         category_hierarchy: list[str] = []
         categories = self.categories_json
         for category_slug_from_splitted_base_category_slug in base_category_slug.split("/"):
@@ -86,6 +127,19 @@ class FixPriceSpider(Spider):  # type: ignore[misc]
         return category_hierarchy
 
     def start_requests(self) -> Iterable[Request]:
+        """
+        Generates initial requests for each `category`.
+
+        This method constructs the initial POST requests for each `category slug`
+        specified in the spider's configuration. It uses the `base URL` template
+        to create requests that will determine the number of pages available
+        for each category. The requests are configured with necessary headers
+        and a callback to handle the response.
+
+        :returns: 
+            An iterable of `Request` objects with `self.get_pages_amount` as `callback`.
+        """
+
         for category_slug in self.categories_slugs:
             url_with_defined_category = self.BASE_URL.format(
                 category_slug=category_slug, limit_value="{limit_value}", page_number="{page_number}"
@@ -99,6 +153,22 @@ class FixPriceSpider(Spider):  # type: ignore[misc]
             )
 
     def get_pages_amount(self, response: Response, **kwargs: Any) -> Iterable[Request]:
+        """
+        Determines the total `number of pages` for recieved category and generates requests for each page.
+
+        This method is called as a callback after the initial request for each category.
+        It calculates the total number of pages based on the "x-count" header in the response
+        and the maximum number of items per page (`MAX_LIMIT_VALUE`). Then generates
+        new requests for each page of the category.
+
+        :param response: 
+            The `Response` object from the `self.start_requests` containing a `number of pages`.
+
+        :returns: 
+            An iterable of `Request` objects - one for each page of the category. 
+            Uses the `self.get_remaining_item_data` as `callback`.
+        """
+
         url_with_defined_category_and_max_limit: str = response.meta["url_with_defined_category"].format(
             limit_value=self.MAX_LIMIT_VALUE, page_number="{page_number}"
         )
@@ -113,6 +183,21 @@ class FixPriceSpider(Spider):  # type: ignore[misc]
             )
 
     def get_remaining_item_data(self, response: Response, **kwargs: Any) -> Iterable[Request]:
+        """
+        Processes the response from `each category page` and generates requests for individual items.
+
+        This method is called as a callback for each page of a category. It extracts
+        information about individual items from the JSON response and generates new
+        requests to fetch detailed data for each item.
+
+        :param response: 
+            The `Response` object from the `self.get_pages_amount` containing a surface data about items on this page.
+
+        :returns: 
+            An iterable of `Request` objects - one for each item on the page.
+            Uses the `self.parse` as `callback`.
+        """
+
         for item_from_catalog_json in response.json():
             yield Request(
                 method="GET",
@@ -123,6 +208,21 @@ class FixPriceSpider(Spider):  # type: ignore[misc]
             )
 
     def parse(self, response: Response, **kwargs: Any) -> Iterable[FixPriceParserItem]:
+        """
+        Parses the detailed product information from the API response.
+
+        This method is the final step in the scraping process. It extracts all relevant
+        product data from the JSON response and constructs a FixPriceParserItem object
+        with the parsed information.
+
+        :param response: 
+            The `Response` object from the `self.get_remaining_item_data` containing full data about item.
+
+        :returns: 
+            An iterable of `FixPriceParserItem` - one for each item. 
+            Each element contains full data about item.
+        """
+
         category_slug: str = response.meta["category_slug"]
         timestamp_value = int(
             datetime.strptime(response.headers["date"].decode("utf-8"), "%a, %d %b %Y %H:%M:%S %Z").timestamp()
